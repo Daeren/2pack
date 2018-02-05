@@ -352,7 +352,8 @@ const bPack = (function() {
 
         let pktOffset       = 0,
 
-            pktDataHolder   = dataHolderAsArray ? new Array() : Object.create(null),
+            pktDataHolderArr= new Array(),
+            pktDataHolderObj= Object.create(null),
             pktMinSize      = 0,
             pktDynamicSize  = false,
 
@@ -521,7 +522,7 @@ const bPack = (function() {
             return target;
         }
 
-        function unpack(bin, offset, length, cbEndInfo, target) {
+        function unpack(bin, offset, length, cbEndInfo, target, asArray = dataHolderAsArray, asCopy = !holderRecreated) {
             if(!schLen) {
                 if(cbEndInfo) {
                     cbEndInfo(pktOffset);
@@ -535,7 +536,7 @@ const bPack = (function() {
             }
 
             if(!isPrimitive) {
-                target = target || (holderRecreated ? (dataHolderAsArray ? new Array() : Object.create(null)) : pktDataHolder);
+                target = target || (asCopy ? (asArray ? new Array() : Object.create(null)) : (asArray ? pktDataHolderArr : pktDataHolderObj));
             }
 
             //--------]>
@@ -623,7 +624,7 @@ const bPack = (function() {
                     target = field;
                 }
                 else {
-                    if(dataHolderAsArray) {
+                    if(asArray) {
                         name = fieldIdx;
                     }
 

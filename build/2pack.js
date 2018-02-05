@@ -341,7 +341,8 @@ var packer = function (module) {
             var zeroUI16 = new Uint8Array(2);
 
             var pktOffset = 0,
-                pktDataHolder = dataHolderAsArray ? new Array() : Object.create(null),
+                pktDataHolderArr = new Array(),
+                pktDataHolderObj = Object.create(null),
                 pktMinSize = 0,
                 pktDynamicSize = false,
                 pktBufStrict = null,
@@ -526,6 +527,9 @@ var packer = function (module) {
             }
 
             function unpack(bin, offset, length, cbEndInfo, target) {
+                var asArray = arguments.length > 5 && arguments[5] !== undefined ? arguments[5] : dataHolderAsArray;
+                var asCopy = arguments.length > 6 && arguments[6] !== undefined ? arguments[6] : !holderRecreated;
+
                 if (!schLen) {
                     if (cbEndInfo) {
                         cbEndInfo(pktOffset);
@@ -539,7 +543,7 @@ var packer = function (module) {
                 }
 
                 if (!isPrimitive) {
-                    target = target || (holderRecreated ? dataHolderAsArray ? new Array() : Object.create(null) : pktDataHolder);
+                    target = target || (asCopy ? asArray ? new Array() : Object.create(null) : asArray ? pktDataHolderArr : pktDataHolderObj);
                 }
 
                 //--------]>
@@ -635,7 +639,7 @@ var packer = function (module) {
                     if (isPrimitive) {
                         target = field;
                     } else {
-                        if (dataHolderAsArray) {
+                        if (asArray) {
                             name = fieldIdx;
                         }
 

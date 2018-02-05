@@ -46,6 +46,8 @@ console.log(
 console.log(
     header.unpack(buf, 0, buf.length),
     payload.unpack(buf, 0, buf.length)
+
+    // payload.unpack(bin, offset, length, cbEndInfo(offset), target, asArray, asCopy)
 );
 ```
 

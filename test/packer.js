@@ -17,6 +17,34 @@ const packer = require("./../index");
 
 //-----------------------------------------------------
 
+const gSchemaWithStrings = [
+    "bin:bin",
+    "json:json",
+    "data:str",
+    "name:str1024",
+    "status:str",
+    "e8:str512",
+    "e:str32",
+    "e1:str",
+    "e2:int8",
+    "e3:str",
+    "lvl:int8",
+    "hp:uint16",
+    "gm:uint8",
+    "x:float32",
+    "y:float64"
+];
+
+const gSchemaWithoutStrings = [
+    "lvl:int8",
+    "hp:uint16",
+    "gm:uint8",
+    "x:float32",
+    "y:float64"
+];
+
+//-----------------------------------------------------
+
 const gDataWithStrings = {
     bin:    Buffer.from("test"),
     json:   {x:1, b: "b".repeat(1)},
@@ -60,6 +88,9 @@ const gExpDataWithStrings = {
     y:      -300.52
 };
 
+const gExpDataWithStringsAsAray = gSchemaWithStrings.map((name) => gExpDataWithStrings[name.split(":")[0]]);
+
+
 const gExpDataWithoutStrings = {
     lvl:    -44,
     hp:     100,
@@ -67,34 +98,6 @@ const gExpDataWithoutStrings = {
     x:      300.8999938964844,
     y:      -300.52
 };
-
-//------)>
-
-const gSchemaWithStrings = [
-    "bin:bin",
-    "json:json",
-    "data:str",
-    "name:str1024",
-    "status:str",
-    "e8:str512",
-    "e:str32",
-    "e1:str",
-    "e2:int8",
-    "e3:str",
-    "lvl:int8",
-    "hp:uint16",
-    "gm:uint8",
-    "x:float32",
-    "y:float64"
-];
-
-const gSchemaWithoutStrings = [
-    "lvl:int8",
-    "hp:uint16",
-    "gm:uint8",
-    "x:float32",
-    "y:float64"
-];
 
 //------)>
 
@@ -118,9 +121,10 @@ let unpackDataWithoutStrings;
 
 function testUnpackData(d1, d2) {
     for(let k in d1) {
-        let t1 = d2[k];
-        let t2 = d1[k];
+        ch(d2[k], d1[k]);
+    }
 
+    function ch(t1, t2) {
         if(typeof(t1) === "number") {
             expect(t2).to.be.closeTo(t1, 0.001);
         } else {
@@ -166,10 +170,10 @@ describe("Packer", function() {
         packDataWithStrings = srzDataWithStrings.pack(gDataWithStrings);
         packDataWithoutStrings = srzDataWithoutStrings.pack(gDataWithoutStrings);
 
-        unpackDataWithStrings = srzDataWithStrings.unpack(packDataWithStrings, 0, packDataWithStrings.length);
+        unpackDataWithStrings = srzDataWithStrings.unpack(packDataWithStrings, 0, packDataWithStrings.length, null, null, true, false);
         unpackDataWithoutStrings = srzDataWithoutStrings.unpack(packDataWithoutStrings, 0, packDataWithoutStrings.length);
 
-        testUnpackData(unpackDataWithStrings, gExpDataWithStrings);
+        testUnpackData(unpackDataWithStrings, gExpDataWithStringsAsAray);
         testUnpackData(unpackDataWithoutStrings, gExpDataWithoutStrings);
     });
 
