@@ -648,7 +648,7 @@ var packer = function (module) {
                 }
 
                 if (cbEndInfo) {
-                    cbEndInfo(curOffset + curOffset - pktOffsetStart);
+                    cbEndInfo(pktOffset + curOffset - pktOffsetStart);
                 }
 
                 //--------]>

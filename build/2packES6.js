@@ -639,7 +639,7 @@ const bPack = (function() {
             }
 
             if(cbEndInfo) {
-                cbEndInfo(curOffset + curOffset - pktOffsetStart);
+                cbEndInfo(pktOffset + curOffset - pktOffsetStart);
             }
 
             //--------]>
