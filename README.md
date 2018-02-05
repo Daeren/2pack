@@ -21,7 +21,7 @@ git clone https://github.com/Daeren/2pack.git
 const packer = require("2pack");
 
 const header = packer("int16");
-const payload = packer(["name:str", "hp:int16"]);
+const payload = packer(["name:str", "hp:int16"]/*, unpackDataAsArray, unpackNewHolder*/);
 
 const headerSize = 2;
 
@@ -32,7 +32,7 @@ payload.offset = headerSize;
 //---------]>
 
 const id = 69;
-const data = {name: "D", hp: 13};
+const data = {name: "D", hp: 13}; // or ["D", 13]
 
 const buf = header.pack(id, payload.pack(data));
 
