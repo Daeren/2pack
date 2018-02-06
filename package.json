@@ -1,7 +1,7 @@
 {
     "name": "2pack",
-    "version": "0.0.2",
-    "description": "",
+    "version": "0.0.3",
+    "description": "Data Serialization",
     "homepage": "https://666.io",
     "keywords": [
         "data",
