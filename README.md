@@ -8,6 +8,7 @@ git clone https://github.com/Daeren/2pack.git
 
 * Binary (Little/Big - Endian)
 * Relative and absolute zero-copy operations wherever possible
+* Browser
 
 
 #### Goals:

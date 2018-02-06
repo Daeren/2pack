@@ -332,7 +332,7 @@ const bPack = (function() {
 
     //-------------------------]>
 
-    function create(schema, dataHolderAsArray, holderRecreated) {
+    function create(schema, holderRecreated, dataHolderAsArray) {
         const TYPE_BIN      = 1;
         const TYPE_STR      = 2;
         const TYPE_INT      = 4;
@@ -344,6 +344,21 @@ const bPack = (function() {
 
         if(!schema) {
             schema = [];
+        }
+
+        //-----------------]>
+
+        const schemaContNames = Array.isArray(schema) ? schema.some((e) => e.split(":").length >= 2) : false;
+        const schemaDontContNames = Array.isArray(schema) ? schema.some((e) => e.split(":").length < 2) : true;
+
+        //-----------------]>
+
+        if(schemaContNames && schemaDontContNames) {
+            throw new Error("A schema has mixed names/types");
+        }
+
+        if(schemaDontContNames) {
+            dataHolderAsArray = true;
         }
 
         //-----------------]>
@@ -360,11 +375,14 @@ const bPack = (function() {
 
             pktDataHolderArr= new Array(),
             pktDataHolderObj= Object.create(null),
-            pktMinSize      = 0,
             pktDynamicSize  = false,
 
             pktBufStrict    = null,
-            pktBufPack      = null;
+            pktBufPack      = null,
+            pktBufPackLen   = 0,
+
+            pktMinSize      = 0,
+            pktMaxSize      = 0;
 
         //-----------------]>
 
@@ -373,7 +391,7 @@ const bPack = (function() {
 
             //---------]>
 
-            const name = e.shift();
+            const name = e.length < 2 ? null : e.shift();
             const subType = e.shift();
 
             const type = getTypeId(subType.replace(/[\d\[\]]/g, ""));
@@ -393,6 +411,7 @@ const bPack = (function() {
             fields[i] = [name, type, bytes, bufType, bufBytes, bufAType, bufABytes];
 
             pktMinSize += bytes;
+            pktMaxSize += bufType.byteLength;
 
             if(!pktDynamicSize && (type & (TYPE_BIN | TYPE_STR))) {
                 pktDynamicSize = true;
@@ -404,6 +423,9 @@ const bPack = (function() {
         //-----------------]>
 
         return {
+            get minSize() { return pktMinSize; },
+            get maxSize() { return pktMaxSize; },
+
             get offset() { return pktOffset; },
             set offset(value) { offset(value); },
 
@@ -427,16 +449,16 @@ const bPack = (function() {
         //------)>
 
         function pack(data, target) {
-            const isArray   = Array.isArray(data);
+            const isArray = Array.isArray(data);
 
             let tIdx,
-                fieldIdx    = schLen,
-                pktSize     = pktOffset;
+                fieldIdx = schLen,
+                pktSize = pktOffset;
 
             let field;
             let name, type, bytes, bufType, bufBytes, bufAType, bufABytes;
 
-            let input;
+            let input = data;
 
             //--------]>
 
@@ -448,11 +470,13 @@ const bPack = (function() {
                 field = fields[fieldIdx];
                 [name, type, bytes, bufType, bufBytes, bufAType, bufABytes] = field;
 
-                input = isPrimitive ? data : data[isArray ? fieldIdx : name];
+                if(!isPrimitive && data) {
+                    input = data[isArray ? fieldIdx : name];
+                }
 
                 //------]>
 
-                if(type & (TYPE_BIN | TYPE_STR)) {
+                if((type & TYPE_STR) || (type & TYPE_BIN)) {
                     if(type & TYPE_JSON) {
                         input = JSON.stringify(input);
                     }
@@ -461,7 +485,7 @@ const bPack = (function() {
                         bytes += bufAType[0] = type & TYPE_BIN ? blitBuffer(input, bufType, bytes, input.byteLength) : bufType.write(input, bytes);
 
                         bufBytes = bufType;
-                        bufType._blen = bytes;
+                        bufBytes._bw = bytes;
 
                         //-----]>
 
@@ -509,16 +533,24 @@ const bPack = (function() {
             //--------]>
 
             if(!pktBufStrict) {
-                target = target || pktBufPack && pktBufPack.length === pktSize ? pktBufPack : (pktBufPack = holyBuffer.allocUnsafe(pktSize));
+                target = target || (pktBufPackLen === pktSize ? pktBufPack : (pktBufPack = holyBuffer.allocUnsafe(pktSize), pktBufPackLen = pktBufPack.length, pktBufPack));
 
                 fieldIdx = schLen;
                 tIdx = pktOffset;
 
                 //--------]>
 
+                let b, i, l;
+
                 while(fieldIdx--) {
-                    for(let b = buffers[fieldIdx], i = 0, l = (b._blen || b.length); i < l; ++i) {
-                        target[tIdx++] = b[i];
+                    b = buffers[fieldIdx];
+                    i = 0;
+                    l = b._bw || b.length;
+
+                    while(i < l) {
+                        target[tIdx] = b[i];
+                        ++tIdx;
+                        ++i;
                     }
                 }
             }
@@ -528,7 +560,7 @@ const bPack = (function() {
             return target;
         }
 
-        function unpack(bin, offset, length, cbEndInfo, target, asArray = dataHolderAsArray, asCopy = !holderRecreated) {
+        function unpack(bin, offset, length, cbEndInfo, target, asCopy = !holderRecreated, asArray = dataHolderAsArray) {
             if(!schLen) {
                 if(cbEndInfo) {
                     cbEndInfo(pktOffset);
@@ -550,11 +582,11 @@ const bPack = (function() {
             let field,
                 fieldIdx = schLen,
 
+                curOffset = offset + pktOffset,
+
                 name, type, bytes, bufType, bufBytes, bufAType, bufABytes;
 
-            let curOffset           = offset + pktOffset;
-
-            const pktOffsetStart    = curOffset;
+            const pktOffsetStart = curOffset;
 
             //--------]>
 
@@ -578,7 +610,7 @@ const bPack = (function() {
 
                 //------]>
 
-                if(type & (TYPE_BIN | TYPE_STR)) {
+                if((type & TYPE_STR) || (type & TYPE_BIN)) {
                     if(isBigEndian) {
                         bufABytes.reverse();
                     }
@@ -590,7 +622,7 @@ const bPack = (function() {
                     //--------]>
 
                     if(!byteLen || byteLen >= length) {
-                        field = type & (TYPE_BIN | TYPE_JSON) ? null : "";
+                        field = (type & TYPE_BIN) || (type & TYPE_JSON) ? null : "";
                     }
                     else {
                         const needMem = Math.min(bufType.length - bytes, length, byteLen);
