@@ -120,6 +120,9 @@ let unpackDataWithoutStrings;
 //-----------------------------------------------------
 
 function testUnpackData(d1, d2) {
+    expect(d1 != null).to.equal(true);
+    expect(d2 != null).to.equal(true);
+
     for(let k in d1) {
         ch(d2[k], d1[k]);
     }
@@ -200,13 +203,13 @@ describe("Packer", function() {
         testUnpackData(unpackDataWithoutStrings, gExpDataWithoutStrings);
     });
 
-    it("unpack | StrCut & StrLen & SchOrder", function() {
-        const schema = packer([
+    it("unpack | Overflow", function() {
+        const schemaShort = packer([
             "msg:str4",
             "num:int8"
         ]);
 
-        const schemaOverflow = packer([
+        const schemaLong = packer([
             "msg:str10",
             "num:int8"
         ]);
@@ -221,14 +224,15 @@ describe("Packer", function() {
             "num": 13
         };
 
-        const packet = schema.pack(dataLong);
-        const packetOverflow = schemaOverflow.pack(dataLong);
+        const packetShort = schemaShort.pack(dataLong);
+        const unpackDataShort = schemaShort.unpack(packetShort, 0, packetShort.length);
 
-        const data = schema.unpack(packet, 0, packet.length);
-        const dataOverflow = schema.unpack(packetOverflow, 0, packetOverflow.length);
+        const packetLong = schemaLong.pack(dataLong);
+        const unpackDataLong = schemaShort.unpack(packetLong, 0, packetLong.length);
 
-        testUnpackData(data, dataShort);
-        testUnpackData(dataOverflow, dataShort);
+
+        testUnpackData(unpackDataShort, dataShort);
+        expect(unpackDataLong).to.equal(void(0));
     });
 
 
@@ -337,6 +341,68 @@ describe("Packer", function() {
         expect(i).to.be.a("number").and.equal(id);
         expect(u && u[0]).to.equal("");
         expect(u && u[1]).to.equal(0);
+    });
+
+    it("schema.str.dBuffer", function() {
+        const pA = packer("int16"); // 2
+        const pB = packer(["int16", "int16", "str10"]); // 2 + 2 + (2 + 10)
+
+        pB.offset = pA.maxSize; // 2 + (2 + 2 + (2 + 10)) = 18
+
+        const b = pA.pack(13, pB.pack([6, 9, "1234567"])); // 15
+
+        const i = pA.unpack(b, 0, b.length);
+        const u = pB.unpack(b, 0, b.length);
+
+        expect(pA.minSize).to.equal(2);
+        expect(pA.maxSize).to.equal(2);
+
+        expect(pB.minSize).to.equal(8);
+        expect(pB.maxSize).to.equal(18);
+
+        expect(i).to.equal(13);
+        expect(u && u[0]).to.equal(6);
+        expect(u && u[1]).to.equal(9);
+        expect(u && u[2]).to.equal("1234567");
+    });
+
+    it("src.Uint8Array", function() {
+        const pA = packer("str8"); // 2 + 8 = 10
+        const data = "☃";
+
+        const b = pA.pack(data); // 2 + 3 = 5
+        const i = pA.unpack(b, 0, b.length);
+        const i2 = pA.unpack(new Uint8Array(b), 0, b.length);
+
+        expect(b.length).to.equal(5);
+        expect(data).to.equal(i);
+        expect(data).to.equal(i2);
+    });
+
+    it("BigStr", function() {
+        const pA = packer(["uint32", "str8"]); // 4 + (2 + 8) = 14
+
+        const b = pA.pack([11, "12345678900000000"]);
+        const i = pA.unpack(new Uint8Array(b), 0, b.length);
+
+        expect(pA.minSize).to.equal(6);
+        expect(pA.maxSize).to.equal(14);
+
+        expect(i && i[0]).to.equal(11);
+        expect(i && i[1]).to.equal("12345678");
+    });
+
+    it("BigBin", function() {
+        const pA = packer(["uint32", "bin8"]); // 4 + (2 + 8) = 14
+
+        const b = pA.pack([11, "12345678900000000"]);
+        const i = pA.unpack(new Uint8Array(b), 0, b.length);
+
+        expect(pA.minSize).to.equal(6);
+        expect(pA.maxSize).to.equal(14);
+
+        expect(i && i[0]).to.equal(11);
+        expect(Buffer.from("12345678".split("")).compare(i && i[1])).to.equal(0);
     });
 
 });

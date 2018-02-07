@@ -89,6 +89,48 @@ function testPacker(data, schema) {
 
     const pktHeroLen = packPktHero.byteLength;
 
+
+
+
+    //-----------------]>
+
+    l = 1000 * 1000 * 1;
+
+    console.time("pktHero.unpack(packPktHero)");
+
+    while(l--) {
+        t = pktHero.unpack(packPktHero, 0, pktHeroLen);
+    }
+
+    console.timeEnd("pktHero.unpack(packPktHero)");
+
+    //-----------------]>
+
+    l = 1000 * 1000 * 1;
+
+    console.time("JSON.parse(strJsonHero)");
+
+    while(l--) {
+        t = JSON.parse(strJsonHero);
+    }
+
+    console.timeEnd("JSON.parse(strJsonHero)");
+
+    //-----------------]>
+
+    l = 1000 * 1000 * 1;
+
+    console.time("JSON.parse(bufJsonHero)");
+
+    while(l--) {
+        t = JSON.parse(bufJsonHero);
+    }
+
+    console.timeEnd("JSON.parse(bufJsonHero)");
+
+
+
+
     //-----------------]>
 
     l = 1000 * 1000 * 1;
@@ -141,39 +183,4 @@ function testPacker(data, schema) {
 
     console.timeEnd("JSON.stringify(objJsonHero) | static.length");
 
-    //-----------------]>
-
-    l = 1000 * 1000 * 1;
-
-    console.time("pktHero.unpack(packPktHero)");
-
-    while(l--) {
-        t = pktHero.unpack(packPktHero, 0, pktHeroLen);
-    }
-
-    console.timeEnd("pktHero.unpack(packPktHero)");
-
-    //-----------------]>
-
-    l = 1000 * 1000 * 1;
-
-    console.time("JSON.parse(strJsonHero)");
-
-    while(l--) {
-        t = JSON.parse(strJsonHero);
-    }
-
-    console.timeEnd("JSON.parse(strJsonHero)");
-
-    //-----------------]>
-
-    l = 1000 * 1000 * 1;
-
-    console.time("JSON.parse(bufJsonHero)");
-
-    while(l--) {
-        t = JSON.parse(bufJsonHero);
-    }
-
-    console.timeEnd("JSON.parse(bufJsonHero)");
 }

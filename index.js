@@ -367,13 +367,10 @@ const bPack = (function() {
 
         let pktOffset       = 0,
 
+            pktDataBuf      = null,
             pktDataHolderArr= new Array(),
             pktDataHolderObj= Object.create(null),
             pktDynamicSize  = false,
-
-            pktBufStrict    = null,
-            pktBufPack      = null,
-            pktBufPackLen   = 0,
 
             pktMinSize      = 0,
             pktMaxSize      = 0;
@@ -392,12 +389,12 @@ const bPack = (function() {
             const size = parseInt(subType.replace(/\D/g, ""), 10) || 0;
 
             const [
-                bytes,
-                bufType,
-                bufAType
+                bytes,   // BYTES_PER_ELEMENT
+                bufType, // dataView
+                bufAType // dataSizeView
             ] = buildTypedBuf(type, size);
 
-            const bufBytes = (type & (TYPE_BIN | TYPE_STR)) ? null : new Uint8Array(bufType.buffer);
+            const bufBytes = ((type & TYPE_STR) || (type & TYPE_BIN)) ? null : new Uint8Array(bufType.buffer);
             const bufABytes = bufAType ? new Uint8Array(bufAType.buffer) : null;
 
             //---------]>
@@ -407,7 +404,7 @@ const bPack = (function() {
             pktMinSize += bytes;
             pktMaxSize += bufType.byteLength;
 
-            if(!pktDynamicSize && (type & (TYPE_BIN | TYPE_STR))) {
+            if(!pktDynamicSize && ((type & TYPE_STR) || (type & TYPE_BIN))) {
                 pktDynamicSize = true;
             }
         }
@@ -432,37 +429,37 @@ const bPack = (function() {
         function offset(value) {
             value = parseInt(value, 10) || 0;
 
-            pktMinSize = pktMinSize - pktOffset + value;
+            pktMinSize = (pktMinSize - pktOffset) + value;
+            pktMaxSize = (pktMaxSize - pktOffset) + value;
             pktOffset = value;
 
-            if(!pktDynamicSize) {
-                pktBufStrict = new Uint8Array(pktMinSize);
-            }
+            pktDataBuf = holyBuffer.allocUnsafeSlow(pktMaxSize);
         }
 
         //------)>
 
         function pack(data, target) {
             const isArray = Array.isArray(data);
+            const outTg = !!target;
 
-            let tIdx,
-                fieldIdx = schLen,
-                pktSize = pktOffset;
+            let fieldIdx = schLen,
+                pktSize = pktOffset,
 
-            let field;
-            let name, type, bytes, bufType, bufBytes, bufAType, bufABytes;
-
-            let input = data;
+                input = data,
+                field,
+                name, type, bytes, bufType, bufBytes, bufAType, bufABytes;
 
             //--------]>
 
-            target = target || pktBufStrict;
+            target = target || pktDataBuf;
 
             //--------]>
 
             while(fieldIdx--) {
                 field = fields[fieldIdx];
                 [name, type, bytes, bufType, bufBytes, bufAType, bufABytes] = field;
+
+                //------]>
 
                 if(!isPrimitive && data) {
                     input = data[isArray ? fieldIdx : name];
@@ -476,28 +473,29 @@ const bPack = (function() {
                     }
 
                     if(input) {
-                        bytes += bufAType[0] = type & TYPE_BIN ? blitBuffer(input, bufType, bytes, input.byteLength) : bufType.write(input, bytes);
-
-                        bufBytes = bufType;
-                        bufBytes._bw = bytes;
-
-                        //-----]>
+                        bytes += bufAType[0] = type & TYPE_BIN ? blitBuffer(input, target, pktSize + bytes, bufType.byteLength - bytes) : target.write(input, pktSize + bytes, bufType.byteLength - bytes);
 
                         if(isBigEndian) {
-                            bufType[0] = bufABytes[1];
-                            bufType[1] = bufABytes[0];
+                            target[pktSize] = bufABytes[1];
+                            target[pktSize + 1] = bufABytes[0];
                         }
                         else {
-                            bufType[0] = bufABytes[0];
-                            bufType[1] = bufABytes[1];
+                            target[pktSize] = bufABytes[0];
+                            target[pktSize + 1] = bufABytes[1];
                         }
+
+                        pktSize += bytes;
+
                     }
                     else {
-                        bufBytes = zeroUI16;
+                        target[pktSize] = 0;
+                        target[pktSize + 1] = 0;
+
+                        pktSize += 2;
                     }
                 }
                 else {
-                    if(input === null || isNaN(input) || !isFinite(input) || typeof(input) === "undefined") {
+                    if(input == null || isNaN(input) || !isFinite(input)) {
                         bufType[0] = 0;
                     }
                     else {
@@ -507,51 +505,21 @@ const bPack = (function() {
                             bufBytes.reverse();
                         }
                     }
-                }
 
-                //------]>
+                    let tIdx = 0;
 
-                if(pktBufStrict) {
-                    tIdx = 0;
+                    while(tIdx < bytes) {
+                        target[pktSize] = bufBytes[tIdx];
 
-                    while(bytes--) {
-                        target[pktSize++] = bufBytes[tIdx++];
-                    }
-                }
-                else {
-                    buffers[fieldIdx] = bufBytes;
-                    pktSize += bytes;
-                }
-            }
-
-            //--------]>
-
-            if(!pktBufStrict) {
-                target = target || (pktBufPackLen === pktSize ? pktBufPack : (pktBufPack = holyBuffer.allocUnsafe(pktSize), pktBufPackLen = pktBufPack.length, pktBufPack));
-
-                fieldIdx = schLen;
-                tIdx = pktOffset;
-
-                //--------]>
-
-                let b, i, l;
-
-                while(fieldIdx--) {
-                    b = buffers[fieldIdx];
-                    i = 0;
-                    l = b._bw || b.length;
-
-                    while(i < l) {
-                        target[tIdx] = b[i];
+                        ++pktSize;
                         ++tIdx;
-                        ++i;
                     }
                 }
             }
 
             //--------]>
 
-            return target;
+            return !outTg && pktSize < pktMaxSize ? target.slice(0, pktSize) : target;
         }
 
         function unpack(bin, offset, length, cbEndInfo, target, asCopy = !holderRecreated, asArray = dataHolderAsArray) {
@@ -573,19 +541,16 @@ const bPack = (function() {
 
             //--------]>
 
-            let field,
-                fieldIdx = schLen,
-
-                curOffset = offset + pktOffset,
-
-                name, type, bytes, bufType, bufBytes, bufAType, bufABytes;
+            let fieldIdx = schLen,
+                curOffset = offset + pktOffset;
 
             const pktOffsetStart = curOffset;
 
             //--------]>
 
             while(fieldIdx--) {
-                [name, type, bytes, bufType, bufBytes, bufAType, bufABytes] = fields[fieldIdx];
+                let field,
+                   [name, type, bytes, bufType, bufBytes, bufAType, bufABytes] = fields[fieldIdx];
 
                 //------]>
 
@@ -595,11 +560,13 @@ const bPack = (function() {
                     }
 
                     if(bufAType) {
-                        bufABytes[i] = bin[curOffset++];
+                        bufABytes[i] = bin[curOffset];
                     }
                     else {
-                        bufBytes[i] = bin[curOffset++];
+                        bufBytes[i] = bin[curOffset];
                     }
+
+                    ++curOffset;
                 }
 
                 //------]>
@@ -615,22 +582,35 @@ const bPack = (function() {
 
                     //--------]>
 
-                    if(!byteLen || byteLen >= length) {
+                    if(!byteLen) {
                         field = (type & TYPE_BIN) || (type & TYPE_JSON) ? null : "";
                     }
+                    else if(byteLen >= length || byteLen > bufType.byteLength) {
+                        return void(0);
+                    }
                     else {
-                        const needMem = Math.min(bufType.length - bytes, length, byteLen);
-                        const buf = type & TYPE_BIN ? holyBuffer.allocUnsafe(needMem) : bufType;
+                        if(type & TYPE_BIN) {
+                            const buf = holyBuffer.allocUnsafeSlow(byteLen);
 
-                        //-------]>
+                            for(let i = 0; i < byteLen; ++i, ++curOffset) {
+                                buf[i] = bin[curOffset];
+                            }
 
-                        for(let i = 0; i < needMem; ++i, ++curOffset) {
-                            buf[i] = bin[curOffset];
+                            field = buf;
                         }
+                        else {
+                            if(bin instanceof(holyBuffer)) {
+                                field = bin.toString("utf8", curOffset, curOffset + byteLen);
+                            }
+                            else if(holyBuffer.from) {
+                                field = holyBuffer.from(bin).toString("utf8", curOffset, curOffset + byteLen);
+                            }
+                            else {
+                                field = bufType.toString.call(bin, "utf8", curOffset, curOffset + byteLen);
+                            }
 
-                        //-------]>
-
-                        field = type & TYPE_BIN ? buf : buf.toString("utf8", 0, needMem);
+                            curOffset += byteLen;
+                        }
 
                         if(type & TYPE_JSON) {
                             try {

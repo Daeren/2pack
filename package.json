@@ -1,6 +1,6 @@
 {
     "name": "2pack",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "description": "Data Serialization",
     "homepage": "https://666.io",
     "keywords": [
@@ -16,6 +16,7 @@
     "scripts": {
         "build": "npm test && grunt",
         "benchmark": "node scripts/benchmark",
+        "bmCopm": "node scripts/bmCopm",
         "test": "mocha --reporter spec"
     },
     "repository": {

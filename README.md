@@ -24,7 +24,7 @@ const packer = require("2pack");
 const header = packer("int16");
 const payload = packer(["name:str", "hp:int16"]/*, unpackNewHolder, unpackDataAsArray*/);
 
-//---------]>
+//------------------------------
 
 payload.offset = header.maxSize;
 
@@ -47,7 +47,7 @@ console.log(
     payload.unpack(buf, 0, buf.length)
 );
 
-//---------]>
+//------------------------------
 
 /*
 packer("int16"); // primitive | returns: value
@@ -65,7 +65,30 @@ packer(["int16", "name:str"]); // error
 //----)>
 
 unpack(bin, offset, length, cbEndInfo(offset), target, asCopy, asArray);
+
+@bin - Buffer / Uint8Array
 */
+```
+
+
+```javascript
+> Node.js v8.9.4
+
+
+2pack.pack: 2799.724ms
+2pack.pack.static: 2251.945ms
+2pack.unpack: 5212.609ms
+
+msgpackLite.pack: 9648.407ms
+msgpackLite.pack.static: 8721.737ms
+msgpackLite.unpack: 12450.920ms
+
+2pack.pack.without(str): 604.289ms
+2pack.unpack.without(str): 1542.349ms
+
+msgpackLite.pack.without(str): 5027.350ms
+msgpackLite.unpack.without(str): 5191.954ms
+
 ```
 
 
