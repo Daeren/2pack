@@ -71,8 +71,9 @@ unpack(bin, offset, length, cbEndInfo(offset), target, asCopy, asArray);
 ```
 
 
-```javascript
+```
 > Node.js v8.9.4
+> npm run bmCopm
 
 
 2pack.pack: 2799.724ms
@@ -88,7 +89,6 @@ msgpackLite.unpack: 12450.920ms
 
 msgpackLite.pack.without(str): 5027.350ms
 msgpackLite.unpack.without(str): 5191.954ms
-
 ```
 
 
