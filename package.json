@@ -1,6 +1,6 @@
 {
     "name": "2pack",
-    "version": "0.0.4",
+    "version": "0.1.0",
     "description": "Data Serialization",
     "homepage": "https://666.io",
     "keywords": [
@@ -25,7 +25,7 @@
     },
     "license": "MIT",
     "engines": {
-        "node": ">=6.0.0"
+        "node": ">=8.0.0"
     },
     "readme": "",
     "readmeFilename": "readme.md",

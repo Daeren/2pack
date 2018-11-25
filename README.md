@@ -99,8 +99,8 @@ msgpackLite.unpack.without(str): 5191.954ms
 |                     | -       |                                                                  |
 | bin<size (byte)>    | b       | default: max 1024 (0-65535); server: Buffer; client: Uint8Array; |
 | str<size (byte)>    | s       | default: max 256 (0-65535)                                       |
-| int<size (bit)>     | i       | size: 8, 16, 32                                                  |
-| uint<size (bit)>    | u       | size: 8, 16, 32                                                  |
+| int<size (bit)>     | i       | size: 8, 16, 32, 64 (BigInt64Array)                              |
+| uint<size (bit)>    | u       | size: 8, 16, 32, 64 (BigUint64Array)                             |
 | float<size (bit)>   | f       | size: 32, 64                                                     |
 | json<size (byte)>   | j       | default: max 8192 (0-65535)                                      |
 

@@ -1,9 +1,4 @@
 const packer = (function(module) {
-                        if(!Uint8Array.prototype.slice) {
-                            Object.defineProperty(Uint8Array.prototype, "slice", {
-                                "value": Array.prototype.slice
-                            });
-                        }
 //-----------------------------------------------------
 //
 // Author: Daeren
@@ -15,8 +10,68 @@ const packer = (function(module) {
 
 //-----------------------------------------------------
 
+if(!Uint8Array.prototype.slice) {
+    Object.defineProperty(Uint8Array.prototype, "slice", {
+        value(begin, end) {
+            //If 'begin' is unspecified, Chrome assumes 0, so we do the same
+            if(begin === void 0) {
+                begin = 0;
+            }
+
+            //If 'end' is unspecified, the new ArrayBuffer contains all
+            //bytes from 'begin' to the end of this ArrayBuffer.
+            if(end === void 0) {
+                end = this.byteLength;
+            }
+
+            //Chrome converts the values to integers via flooring
+            begin = Math.floor(begin);
+            end = Math.floor(end);
+
+            //If either 'begin' or 'end' is negative, it refers to an
+            //index from the end of the array, as opposed to from the beginning.
+            if(begin < 0) {
+                begin += this.byteLength;
+            }
+
+            if (end < 0) {
+                end += this.byteLength;
+            }
+
+            //The range specified by the 'begin' and 'end' values is clamped to the
+            //valid index range for the current array.
+            begin = Math.min(Math.max(0, begin), this.byteLength);
+            end = Math.min(Math.max(0, end), this.byteLength);
+
+            //If the computed length of the new ArrayBuffer would be negative, it
+            //is clamped to zero.
+            if(end - begin <= 0) {
+                return new ArrayBuffer(0);
+            }
+
+            let len = end - begin;
+
+            const result = new ArrayBuffer(len);
+            const resultBytes = new Uint8Array(result);
+            const sourceBytes = new Uint8Array(this, begin, len);
+
+
+            while(len--) {
+                resultBytes[len] = sourceBytes[len];
+            }
+
+            // some problems with IE11
+            //resultBytes.set(sourceBytes);
+
+            return resultBytes;
+        }
+    });
+}
+
+//-----------------------------------------------------
+
 const bPack = (function() {
-    const holyBuffer = (typeof(Buffer) !== "undefined" ? Buffer : (function() {
+    const XBuffer = (typeof(Buffer) !== "undefined" ? Buffer : (function() {
             const MAX_ARGUMENTS_LENGTH = 0x1000;
             const K_MAX_LENGTH = 0x7fffffff;
 
@@ -29,11 +84,6 @@ const bPack = (function() {
 
                 Buffer.allocUnsafe = allocUnsafe;
                 Buffer.allocUnsafeSlow = allocUnsafe;
-                Buffer.byteLength = byteLength;
-
-                Buffer.prototype = Object.create(null);
-                Buffer.prototype.write = write;
-                Buffer.prototype.toString = toString;
 
                 //--------]>
 
@@ -48,15 +98,10 @@ const bPack = (function() {
 
                     const buf = new Uint8Array(length);
 
-                    // buf.__proto__ = Buffer.prototype;
-                    buf.write = Buffer.prototype.write;
-                    buf.toString = Buffer.prototype.toString;
+                    buf.write = write;
+                    buf.toString = toString;
 
                     return buf;
-                }
-
-                function byteLength(string) {
-                    return utf8ToBytes(string).length;
                 }
 
                 //----)>
@@ -285,13 +330,6 @@ const bPack = (function() {
 
             //--------)>
 
-            function swap(b, n, m) {
-                const i = b[n];
-
-                b[n] = b[m];
-                b[m] = i;
-            }
-
             function decodeCodePointsArray(codePoints) {
                 const len = codePoints.length;
 
@@ -304,17 +342,12 @@ const bPack = (function() {
                 let i = 0;
 
                 while(i < len) {
-                    res += String.fromCharCode.apply(
-                        String,
-                        codePoints.slice(i, i += MAX_ARGUMENTS_LENGTH)
-                    );
+                    res += String.fromCharCode.apply(String, codePoints.slice(i, i += MAX_ARGUMENTS_LENGTH));
                 }
 
                 return res;
             }
         })());
-
-    //-------------------------]>
 
     const isBigEndian = (function() {
         const a = new Uint32Array([0x12345678]);
@@ -328,11 +361,13 @@ const bPack = (function() {
     create.isBE = isBigEndian;
     create.isLE = !isBigEndian;
 
+    //-------------------------]>
+
     return create;
 
     //-------------------------]>
 
-    function create(schema, holderRecreated, dataHolderAsArray) {
+    function create(schema, holderRecreated = false, dataHolderAsArray = false) {
         const TYPE_BIN      = 1;
         const TYPE_STR      = 2;
         const TYPE_INT      = 4;
@@ -342,8 +377,8 @@ const bPack = (function() {
 
         //-----------------]>
 
-        if(!schema) {
-            schema = [];
+        if(!schema || !Array.isArray(schema) && typeof(schema) !== "string") {
+            throw new Error("Invalid schema");
         }
 
         //-----------------]>
@@ -367,29 +402,22 @@ const bPack = (function() {
         const schLen        = isPrimitive ? 1 : schema.length;
 
         const fields        = new Array(schLen);
-        const buffers       = new Array(schLen);
-
         const zeroUI16      = new Uint8Array(2);
 
-        let pktOffset       = 0,
+        //---------)>
 
-            pktDataBuf      = null,
-            pktDataHolderArr= new Array(),
-            pktDataHolderObj= Object.create(null),
-            pktDynamicSize  = false,
+        let pktDataBuf      = null;
+        let pktOffset       = 0;
+        let pktMinSize      = 0;
+        let pktMaxSize      = 0;
 
-            pktMinSize      = 0,
-            pktMaxSize      = 0;
+        let pktDataHolderArr= new Array();
+        let pktDataHolderObj= Object.create(null);
 
         //-----------------]>
 
-        for(let e, i = 0; i < schLen; ++i) {
-            e = isPrimitive ? ["", schema] : schema[i].split(":");
-
-            //---------]>
-
-            const name = e.length < 2 ? null : e.shift();
-            const subType = e.shift();
+        for(let i = 0; i < schLen; ++i) {
+            const [subType, name] = isPrimitive ? [schema, ""] : schema[i].split(":").reverse();
 
             const type = getTypeId(subType.replace(/[\d\[\]]/g, ""));
             const size = parseInt(subType.replace(/\D/g, ""), 10) || 0;
@@ -409,10 +437,6 @@ const bPack = (function() {
 
             pktMinSize += bytes;
             pktMaxSize += bufType.byteLength;
-
-            if(!pktDynamicSize && ((type & TYPE_STR) || (type & TYPE_BIN))) {
-                pktDynamicSize = true;
-            }
         }
 
         offset(0);
@@ -439,7 +463,7 @@ const bPack = (function() {
             pktMaxSize = (pktMaxSize - pktOffset) + value;
             pktOffset = value;
 
-            pktDataBuf = holyBuffer.allocUnsafeSlow(pktMaxSize);
+            pktDataBuf = XBuffer.allocUnsafeSlow(pktMaxSize);
         }
 
         //------)>
@@ -448,12 +472,13 @@ const bPack = (function() {
             const isArray = Array.isArray(data);
             const outTg = !!target;
 
-            let fieldIdx = schLen,
-                pktSize = pktOffset,
+            let fieldIdx = schLen;
+            let pktSize = pktOffset;
 
-                input = data,
-                field,
-                name, type, bytes, bufType, bufBytes, bufAType, bufABytes;
+            let input = data;
+
+            let field;
+            let name, type, bytes, bufType, bufBytes, bufAType, bufABytes;
 
             //--------]>
 
@@ -501,7 +526,7 @@ const bPack = (function() {
                     }
                 }
                 else {
-                    if(input == null || isNaN(input) || !isFinite(input)) {
+                    if(input == null || typeof(input) !== "bigint" && (isNaN(input) || !isFinite(input))) {
                         bufType[0] = 0;
                     }
                     else {
@@ -547,16 +572,16 @@ const bPack = (function() {
 
             //--------]>
 
-            let fieldIdx = schLen,
-                curOffset = offset + pktOffset;
+            let fieldIdx = schLen;
+            let curOffset = offset + pktOffset;
 
             const pktOffsetStart = curOffset;
 
             //--------]>
 
             while(fieldIdx--) {
-                let field,
-                   [name, type, bytes, bufType, bufBytes, bufAType, bufABytes] = fields[fieldIdx];
+                let field;
+                let [name, type, bytes, bufType, bufBytes, bufAType, bufABytes] = fields[fieldIdx];
 
                 //------]>
 
@@ -596,7 +621,7 @@ const bPack = (function() {
                     }
                     else {
                         if(type & TYPE_BIN) {
-                            const buf = holyBuffer.allocUnsafeSlow(byteLen);
+                            const buf = XBuffer.allocUnsafeSlow(byteLen);
 
                             for(let i = 0; i < byteLen; ++i, ++curOffset) {
                                 buf[i] = bin[curOffset];
@@ -605,11 +630,11 @@ const bPack = (function() {
                             field = buf;
                         }
                         else {
-                            if(bin instanceof(holyBuffer)) {
+                            if(bin instanceof(XBuffer)) {
                                 field = bin.toString("utf8", curOffset, curOffset + byteLen);
                             }
-                            else if(holyBuffer.from) {
-                                field = holyBuffer.from(bin).toString("utf8", curOffset, curOffset + byteLen);
+                            else if(XBuffer.from) {
+                                field = XBuffer.from(bin).toString("utf8", curOffset, curOffset + byteLen);
                             }
                             else {
                                 field = bufType.toString.call(bin, "utf8", curOffset, curOffset + byteLen);
@@ -663,15 +688,15 @@ const bPack = (function() {
 
         function buildTypedBuf(type, size) {
             if(type & TYPE_BIN) {
-                return [Uint16Array.BYTES_PER_ELEMENT, holyBuffer.allocUnsafeSlow((size || 1024) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
+                return [Uint16Array.BYTES_PER_ELEMENT, XBuffer.allocUnsafeSlow((size || 1024) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
             }
 
             if(type & TYPE_JSON) {
-                return [Uint16Array.BYTES_PER_ELEMENT, holyBuffer.allocUnsafeSlow((size || 8192) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
+                return [Uint16Array.BYTES_PER_ELEMENT, XBuffer.allocUnsafeSlow((size || 8192) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
             }
 
             if(type & TYPE_STR) {
-                return [Uint16Array.BYTES_PER_ELEMENT, holyBuffer.allocUnsafeSlow((size || 256) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
+                return [Uint16Array.BYTES_PER_ELEMENT, XBuffer.allocUnsafeSlow((size || 256) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
             }
 
             switch(type) {
@@ -680,6 +705,7 @@ const bPack = (function() {
                         case 8: return [Int8Array.BYTES_PER_ELEMENT, new Int8Array(1)];
                         case 16: return [Int16Array.BYTES_PER_ELEMENT, new Int16Array(1)];
                         case 32: return [Int32Array.BYTES_PER_ELEMENT, new Int32Array(1)];
+                        case 64: return [BigInt64Array.BYTES_PER_ELEMENT, new BigInt64Array(1)];
 
                         default:
                             throw new Error(`Unknown size: ${size}`);
@@ -691,6 +717,7 @@ const bPack = (function() {
                         case 8: return [Uint8Array.BYTES_PER_ELEMENT, new Uint8Array(1)];
                         case 16: return [Uint16Array.BYTES_PER_ELEMENT, new Uint16Array(1)];
                         case 32: return [Uint32Array.BYTES_PER_ELEMENT, new Uint32Array(1)];
+                        case 64: return [BigUint64Array.BYTES_PER_ELEMENT, new BigUint64Array(1)];
 
                         default:
                             throw new Error(`Unknown size: ${size}`);
@@ -777,4 +804,4 @@ const bPack = (function() {
 
 module.exports = bPack;
 
-return bPack; })({});
+return module.exports; })({});

@@ -20,14 +20,8 @@ module.exports = function(grunt) {
                 dest: "build/2packES6.js",
                 options: {
                     wrapper: [
-                        `const packer = (function(module) {
-                        if(!Uint8Array.prototype.slice) {
-                            Object.defineProperty(Uint8Array.prototype, "slice", {
-                                "value": Array.prototype.slice
-                            });
-                        }`,
-
-                        "return bPack; })({});"
+                        "const packer = (function(module) {",
+                        "return module.exports; })({});"
                     ]
                 }
             }
@@ -36,7 +30,7 @@ module.exports = function(grunt) {
         babel: {
             options: {
                 sourceMap: true,
-                sourceMapTarget: "build/2pack.min.js.map",
+                sourceMapTarget: "build/2pack.min.map",
                 presets: ["es2015", "es2016", "es2017"]
             },
             dist: {

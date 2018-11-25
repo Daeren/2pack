@@ -32,7 +32,9 @@ const gSchemaWithStrings = [
     "hp:uint16",
     "gm:uint8",
     "x:float32",
-    "y:float64"
+    "y:float64",
+    "bigInt:int64",
+    "bigUInt:uint64"
 ];
 
 const gSchemaWithoutStrings = [
@@ -40,7 +42,9 @@ const gSchemaWithoutStrings = [
     "hp:uint16",
     "gm:uint8",
     "x:float32",
-    "y:float64"
+    "y:float64",
+    "bigInt:int64",
+    "bigUInt:uint64"
 ];
 
 //-----------------------------------------------------
@@ -57,7 +61,9 @@ const gDataWithStrings = {
     hp:     100.44,
     gm:     Infinity,
     x:      300.9,
-    y:      -300.52
+    y:      -300.52,
+    bigInt: 100n,
+    bigUInt:-100n
 };
 
 const gDataWithoutStrings = {
@@ -65,7 +71,9 @@ const gDataWithoutStrings = {
     hp:     100.44,
     gm:     Infinity,
     x:      300.9,
-    y:      -300.52
+    y:      -300.52,
+    bigInt: 100n,
+    bigUInt:-100n
 };
 
 //------)>
@@ -85,7 +93,9 @@ const gExpDataWithStrings = {
     hp:     100,
     gm:     0,
     x:      300.8999938964844,
-    y:      -300.52
+    y:      -300.52,
+    bigInt: 100n,
+    bigUInt:18446744073709551516n
 };
 
 const gExpDataWithStringsAsAray = gSchemaWithStrings.map((name) => gExpDataWithStrings[name.split(":")[0]]);
@@ -96,13 +106,12 @@ const gExpDataWithoutStrings = {
     hp:     100,
     gm:     0,
     x:      300.8999938964844,
-    y:      -300.52
+    y:      -300.52,
+    bigInt: 100n,
+    bigUInt:18446744073709551516n
 };
 
 //------)>
-
-const gJsonExpDataWithStrings = JSON.stringify(gExpDataWithStrings);
-const gJsongExpDataWithoutStrings = JSON.stringify(gExpDataWithoutStrings);
 
 const gMid = 136;
 
@@ -311,22 +320,19 @@ describe("Packer", function() {
     });
 
     it("empty:schema", function() {
-        const pA = packer("int16");
+        let error = "";
 
-        const id = 13;
+        try {
+            packer();
+        }
+        catch(e) {
+            error = e.message;
+        }
 
-        const p = packer();
-        p.offset = pA.maxSize;
-
-        const b = pA.pack(id, p.pack());
-        const u = p.unpack(b, 0, b.length);
-        const i = pA.unpack(b, 0, b.length);
-
-        expect(i).to.be.a("number").and.equal(id);
-        expect(u).to.equal(null);
+        expect(error).to.be.a("string").and.equal("Invalid schema");
     });
 
-    it("empty:schema.str", function() {
+    it("schema.str.empty", function() {
         const pA = packer("int16");
 
         const id = 13;

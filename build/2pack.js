@@ -5,11 +5,6 @@ var _typeof = typeof Symbol === "function" && typeof Symbol.iterator === "symbol
 var _slicedToArray = function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; }();
 
 var packer = function (module) {
-    if (!Uint8Array.prototype.slice) {
-        Object.defineProperty(Uint8Array.prototype, "slice", {
-            "value": Array.prototype.slice
-        });
-    }
     //-----------------------------------------------------
     //
     // Author: Daeren
@@ -21,8 +16,67 @@ var packer = function (module) {
 
     //-----------------------------------------------------
 
+    if (!Uint8Array.prototype.slice) {
+        Object.defineProperty(Uint8Array.prototype, "slice", {
+            value: function value(begin, end) {
+                //If 'begin' is unspecified, Chrome assumes 0, so we do the same
+                if (begin === void 0) {
+                    begin = 0;
+                }
+
+                //If 'end' is unspecified, the new ArrayBuffer contains all
+                //bytes from 'begin' to the end of this ArrayBuffer.
+                if (end === void 0) {
+                    end = this.byteLength;
+                }
+
+                //Chrome converts the values to integers via flooring
+                begin = Math.floor(begin);
+                end = Math.floor(end);
+
+                //If either 'begin' or 'end' is negative, it refers to an
+                //index from the end of the array, as opposed to from the beginning.
+                if (begin < 0) {
+                    begin += this.byteLength;
+                }
+
+                if (end < 0) {
+                    end += this.byteLength;
+                }
+
+                //The range specified by the 'begin' and 'end' values is clamped to the
+                //valid index range for the current array.
+                begin = Math.min(Math.max(0, begin), this.byteLength);
+                end = Math.min(Math.max(0, end), this.byteLength);
+
+                //If the computed length of the new ArrayBuffer would be negative, it
+                //is clamped to zero.
+                if (end - begin <= 0) {
+                    return new ArrayBuffer(0);
+                }
+
+                var len = end - begin;
+
+                var result = new ArrayBuffer(len);
+                var resultBytes = new Uint8Array(result);
+                var sourceBytes = new Uint8Array(this, begin, len);
+
+                while (len--) {
+                    resultBytes[len] = sourceBytes[len];
+                }
+
+                // some problems with IE11
+                //resultBytes.set(sourceBytes);
+
+                return resultBytes;
+            }
+        });
+    }
+
+    //-----------------------------------------------------
+
     var bPack = function () {
-        var holyBuffer = typeof Buffer !== "undefined" ? Buffer : function () {
+        var XBuffer = typeof Buffer !== "undefined" ? Buffer : function () {
             var MAX_ARGUMENTS_LENGTH = 0x1000;
             var K_MAX_LENGTH = 0x7fffffff;
 
@@ -35,11 +89,6 @@ var packer = function (module) {
 
                 Buffer.allocUnsafe = allocUnsafe;
                 Buffer.allocUnsafeSlow = allocUnsafe;
-                Buffer.byteLength = byteLength;
-
-                Buffer.prototype = Object.create(null);
-                Buffer.prototype.write = write;
-                Buffer.prototype.toString = toString;
 
                 //--------]>
 
@@ -54,15 +103,10 @@ var packer = function (module) {
 
                     var buf = new Uint8Array(length);
 
-                    // buf.__proto__ = Buffer.prototype;
-                    buf.write = Buffer.prototype.write;
-                    buf.toString = Buffer.prototype.toString;
+                    buf.write = write;
+                    buf.toString = toString;
 
                     return buf;
-                }
-
-                function byteLength(string) {
-                    return utf8ToBytes(string).length;
                 }
 
                 //----)>
@@ -272,13 +316,6 @@ var packer = function (module) {
 
             //--------)>
 
-            function swap(b, n, m) {
-                var i = b[n];
-
-                b[n] = b[m];
-                b[m] = i;
-            }
-
             function decodeCodePointsArray(codePoints) {
                 var len = codePoints.length;
 
@@ -298,8 +335,6 @@ var packer = function (module) {
             }
         }();
 
-        //-------------------------]>
-
         var isBigEndian = function () {
             var a = new Uint32Array([0x12345678]);
             var b = new Uint8Array(a.buffer, a.byteOffset, a.byteLength);
@@ -312,11 +347,16 @@ var packer = function (module) {
         create.isBE = isBigEndian;
         create.isLE = !isBigEndian;
 
+        //-------------------------]>
+
         return create;
 
         //-------------------------]>
 
-        function create(schema, holderRecreated, dataHolderAsArray) {
+        function create(schema) {
+            var holderRecreated = arguments.length > 1 && arguments[1] !== undefined ? arguments[1] : false;
+            var dataHolderAsArray = arguments.length > 2 && arguments[2] !== undefined ? arguments[2] : false;
+
             var TYPE_BIN = 1;
             var TYPE_STR = 2;
             var TYPE_INT = 4;
@@ -326,8 +366,8 @@ var packer = function (module) {
 
             //-----------------]>
 
-            if (!schema) {
-                schema = [];
+            if (!schema || !Array.isArray(schema) && typeof schema !== "string") {
+                throw new Error("Invalid schema");
             }
 
             //-----------------]>
@@ -355,27 +395,25 @@ var packer = function (module) {
             var schLen = isPrimitive ? 1 : schema.length;
 
             var fields = new Array(schLen);
-            var buffers = new Array(schLen);
-
             var zeroUI16 = new Uint8Array(2);
 
-            var pktOffset = 0,
-                pktDataBuf = null,
-                pktDataHolderArr = new Array(),
-                pktDataHolderObj = Object.create(null),
-                pktDynamicSize = false,
-                pktMinSize = 0,
-                pktMaxSize = 0;
+            //---------)>
+
+            var pktDataBuf = null;
+            var pktOffset = 0;
+            var pktMinSize = 0;
+            var pktMaxSize = 0;
+
+            var pktDataHolderArr = new Array();
+            var pktDataHolderObj = Object.create(null);
 
             //-----------------]>
 
-            for (var e, i = 0; i < schLen; ++i) {
-                e = isPrimitive ? ["", schema] : schema[i].split(":");
-
-                //---------]>
-
-                var name = e.length < 2 ? null : e.shift();
-                var subType = e.shift();
+            for (var i = 0; i < schLen; ++i) {
+                var _ref = isPrimitive ? [schema, ""] : schema[i].split(":").reverse(),
+                    _ref2 = _slicedToArray(_ref, 2),
+                    subType = _ref2[0],
+                    name = _ref2[1];
 
                 var type = getTypeId(subType.replace(/[\d\[\]]/g, ""));
                 var size = parseInt(subType.replace(/\D/g, ""), 10) || 0;
@@ -398,10 +436,6 @@ var packer = function (module) {
 
                 pktMinSize += bytes;
                 pktMaxSize += bufType.byteLength;
-
-                if (!pktDynamicSize && (type & TYPE_STR || type & TYPE_BIN)) {
-                    pktDynamicSize = true;
-                }
             }
 
             offset(0);
@@ -436,7 +470,7 @@ var packer = function (module) {
                 pktMaxSize = pktMaxSize - pktOffset + value;
                 pktOffset = value;
 
-                pktDataBuf = holyBuffer.allocUnsafeSlow(pktMaxSize);
+                pktDataBuf = XBuffer.allocUnsafeSlow(pktMaxSize);
             }
 
             //------)>
@@ -445,11 +479,13 @@ var packer = function (module) {
                 var isArray = Array.isArray(data);
                 var outTg = !!target;
 
-                var fieldIdx = schLen,
-                    pktSize = pktOffset,
-                    input = data,
-                    field = void 0,
-                    name = void 0,
+                var fieldIdx = schLen;
+                var pktSize = pktOffset;
+
+                var input = data;
+
+                var field = void 0;
+                var name = void 0,
                     type = void 0,
                     bytes = void 0,
                     bufType = void 0,
@@ -510,7 +546,7 @@ var packer = function (module) {
                             pktSize += 2;
                         }
                     } else {
-                        if (input == null || isNaN(input) || !isFinite(input)) {
+                        if (input == null || typeof input !== "bigint" && (isNaN(input) || !isFinite(input))) {
                             bufType[0] = 0;
                         } else {
                             bufType[0] = input;
@@ -558,17 +594,18 @@ var packer = function (module) {
 
                 //--------]>
 
-                var fieldIdx = schLen,
-                    curOffset = offset + pktOffset;
+                var fieldIdx = schLen;
+                var curOffset = offset + pktOffset;
 
                 var pktOffsetStart = curOffset;
 
                 //--------]>
 
                 while (fieldIdx--) {
-                    var field = void 0,
-                        _fields$fieldIdx = _slicedToArray(fields[fieldIdx], 7),
-                        _name = _fields$fieldIdx[0],
+                    var field = void 0;
+
+                    var _fields$fieldIdx = _slicedToArray(fields[fieldIdx], 7),
+                        name = _fields$fieldIdx[0],
                         _type = _fields$fieldIdx[1],
                         bytes = _fields$fieldIdx[2],
                         bufType = _fields$fieldIdx[3],
@@ -611,7 +648,7 @@ var packer = function (module) {
                             return void 0;
                         } else {
                             if (_type & TYPE_BIN) {
-                                var buf = holyBuffer.allocUnsafeSlow(byteLen);
+                                var buf = XBuffer.allocUnsafeSlow(byteLen);
 
                                 for (var _i2 = 0; _i2 < byteLen; ++_i2, ++curOffset) {
                                     buf[_i2] = bin[curOffset];
@@ -619,10 +656,10 @@ var packer = function (module) {
 
                                 field = buf;
                             } else {
-                                if (bin instanceof holyBuffer) {
+                                if (bin instanceof XBuffer) {
                                     field = bin.toString("utf8", curOffset, curOffset + byteLen);
-                                } else if (holyBuffer.from) {
-                                    field = holyBuffer.from(bin).toString("utf8", curOffset, curOffset + byteLen);
+                                } else if (XBuffer.from) {
+                                    field = XBuffer.from(bin).toString("utf8", curOffset, curOffset + byteLen);
                                 } else {
                                     field = bufType.toString.call(bin, "utf8", curOffset, curOffset + byteLen);
                                 }
@@ -652,10 +689,10 @@ var packer = function (module) {
                         target = field;
                     } else {
                         if (asArray) {
-                            _name = fieldIdx;
+                            name = fieldIdx;
                         }
 
-                        target[_name] = field;
+                        target[name] = field;
                     }
                 }
 
@@ -672,15 +709,15 @@ var packer = function (module) {
 
             function buildTypedBuf(type, size) {
                 if (type & TYPE_BIN) {
-                    return [Uint16Array.BYTES_PER_ELEMENT, holyBuffer.allocUnsafeSlow((size || 1024) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
+                    return [Uint16Array.BYTES_PER_ELEMENT, XBuffer.allocUnsafeSlow((size || 1024) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
                 }
 
                 if (type & TYPE_JSON) {
-                    return [Uint16Array.BYTES_PER_ELEMENT, holyBuffer.allocUnsafeSlow((size || 8192) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
+                    return [Uint16Array.BYTES_PER_ELEMENT, XBuffer.allocUnsafeSlow((size || 8192) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
                 }
 
                 if (type & TYPE_STR) {
-                    return [Uint16Array.BYTES_PER_ELEMENT, holyBuffer.allocUnsafeSlow((size || 256) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
+                    return [Uint16Array.BYTES_PER_ELEMENT, XBuffer.allocUnsafeSlow((size || 256) + Uint16Array.BYTES_PER_ELEMENT), new Uint16Array(1)];
                 }
 
                 switch (type) {
@@ -692,6 +729,8 @@ var packer = function (module) {
                                 return [Int16Array.BYTES_PER_ELEMENT, new Int16Array(1)];
                             case 32:
                                 return [Int32Array.BYTES_PER_ELEMENT, new Int32Array(1)];
+                            case 64:
+                                return [BigInt64Array.BYTES_PER_ELEMENT, new BigInt64Array(1)];
 
                             default:
                                 throw new Error("Unknown size: " + size);
@@ -705,6 +744,8 @@ var packer = function (module) {
                                 return [Uint16Array.BYTES_PER_ELEMENT, new Uint16Array(1)];
                             case 32:
                                 return [Uint32Array.BYTES_PER_ELEMENT, new Uint32Array(1)];
+                            case 64:
+                                return [BigUint64Array.BYTES_PER_ELEMENT, new BigUint64Array(1)];
 
                             default:
                                 throw new Error("Unknown size: " + size);
@@ -793,6 +834,6 @@ var packer = function (module) {
 
     module.exports = bPack;
 
-    return bPack;
+    return module.exports;
 }({});
 //# sourceMappingURL=2pack.js.map
