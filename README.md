@@ -1,4 +1,4 @@
-[![Codacy][cod_b]][cod_l]
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/c9243ce691144a5380e6afa2361990ae)](https://www.codacy.com/app/daeren/2pack?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Daeren/2pack&amp;utm_campaign=Badge_Grade)
 
 ```
 npm -g install 2pack
@@ -116,6 +116,3 @@ MIT
 
 [1]: http://666.io
 [2]: https://telegram.me/io666
-
-[cod_b]: https://img.shields.io/codacy/c9243ce691144a5380e6afa2361990ae.svg
-[cod_l]: https://www.codacy.com/app/daeren/2pack/dashboard
