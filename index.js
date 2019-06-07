@@ -401,6 +401,8 @@ const bPack = (function() {
 
         //-----------------]>
 
+        const int64size     = typeof(BigInt64Array) !== "undefined" ? BigInt64Array.BYTES_PER_ELEMENT : 0;
+
         const isPrimitive   = typeof(schema) === "string";
         const schLen        = isPrimitive ? 1 : schema.length;
 
@@ -414,8 +416,8 @@ const bPack = (function() {
         let pktMinSize      = 0;
         let pktMaxSize      = 0;
 
-        let pktDataHolderArr= new Array();
-        let pktDataHolderObj= Object.create(null);
+        let pktDataHolderArr = new Array();
+        let pktDataHolderObj = Object.create(null);
 
         //-----------------]>
 
@@ -529,8 +531,14 @@ const bPack = (function() {
                     }
                 }
                 else {
+                    let zeroValue = 0;
+
+                    if(bytes === int64size) {
+                        zeroValue = BigInt("0");
+                    }
+
                     if(input == null || typeof(input) !== "bigint" && (isNaN(input) || !isFinite(input))) {
-                        bufType[0] = 0;
+                        bufType[0] = zeroValue;
                     }
                     else {
                         bufType[0] = input;
@@ -711,7 +719,7 @@ const bPack = (function() {
                         case 64: return [BigInt64Array.BYTES_PER_ELEMENT, new BigInt64Array(1)];
 
                         default:
-                            throw new Error(`Unknown size: ${size}`);
+                            throw new Error(`Unknown size: ${size} | ${type}`);
                     }
 
 
@@ -723,7 +731,7 @@ const bPack = (function() {
                         case 64: return [BigUint64Array.BYTES_PER_ELEMENT, new BigUint64Array(1)];
 
                         default:
-                            throw new Error(`Unknown size: ${size}`);
+                            throw new Error(`Unknown size: ${size} | ${type}`);
                     }
 
 
@@ -733,11 +741,11 @@ const bPack = (function() {
                         case 64: return [Float64Array.BYTES_PER_ELEMENT, new Float64Array(1)];
 
                         default:
-                            throw new Error(`Unknown size: ${size}`);
+                            throw new Error(`Unknown size: ${size} | ${type}`);
                     }
 
                 default:
-                    throw new Error(`Unknown type: ${type}`);
+                    throw new Error(`Unknown type: ${type} | ${type}`);
             }
         }
 

@@ -332,6 +332,7 @@ describe("Packer", function() {
         expect(error).to.be.a("string").and.equal("Invalid schema");
     });
 
+
     it("schema.str.empty", function() {
         const pA = packer("int16");
 
@@ -372,6 +373,7 @@ describe("Packer", function() {
         expect(u && u[2]).to.equal("1234567");
     });
 
+
     it("src.Uint8Array", function() {
         const pA = packer("str8"); // 2 + 8 = 10
         const data = "☃";
@@ -384,6 +386,7 @@ describe("Packer", function() {
         expect(data).to.equal(i);
         expect(data).to.equal(i2);
     });
+
 
     it("BigStr", function() {
         const pA = packer(["uint32", "str8"]); // 4 + (2 + 8) = 14
@@ -409,6 +412,19 @@ describe("Packer", function() {
 
         expect(i && i[0]).to.equal(11);
         expect(Buffer.from("12345678".split("")).compare(i && i[1])).to.equal(0);
+    });
+
+    it("BigInt", function() {
+        const pA = packer(["uint64", "uint64", "int64", "uint64", "int64"]);
+
+        const b = pA.pack([0n, 10n, -10n, NaN, 1 / 0]);
+        const i = pA.unpack(b, 0, b.length);
+
+        expect(i[0]).to.equal(0n);
+        expect(i[1]).to.equal(10n);
+        expect(i[2]).to.equal(-10n);
+        expect(i[3]).to.equal(0n);
+        expect(i[4]).to.equal(0n);
     });
 
 });
