@@ -1,11 +1,3 @@
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/c9243ce691144a5380e6afa2361990ae)](https://www.codacy.com/app/daeren/2pack?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=Daeren/2pack&amp;utm_campaign=Badge_Grade)
-
-```
-npm -g install 2pack
-git clone https://github.com/Daeren/2pack.git
-```
-
-
 * Binary (Little/Big - Endian)
 * Relative and absolute zero-copy operations wherever possible
 * Browser
@@ -13,16 +5,14 @@ git clone https://github.com/Daeren/2pack.git
 
 #### Goals:
 1. Low memory usage;
-2. Maximum performance;
-3. Flexibility;
-4. Games.
+2. Maximum performance.
 
 
 ```javascript
-const packer = require("2pack");
+const packer = require('2pack');
 
-const header = packer("int16");
-const payload = packer(["name:str", "hp:int16"]/*, unpackNewHolder, unpackDataAsArray*/);
+const header = packer('int16');
+const payload = packer(['name:str', 'hp:int16']);
 
 //------------------------------
 
@@ -31,36 +21,34 @@ payload.offset = header.maxSize;
 //---------]>
 
 const id = 69;
-const data = {name: "D", hp: 13};
+const data = { name: 'D', hp: 13 };
 
 const buf = header.pack(id, payload.pack(data));
+const size = buf.length;
 
 //---------]>
 
-console.log(
-    packer.isBE,
-    packer.isLE
-);
+console.log(packer.isBE, packer.isLE);
 
 console.log(
-    header.unpack(buf, 0, buf.length),
-    payload.unpack(buf, 0, buf.length)
+    header.unpack(buf, 0, size),
+    payload.unpack(buf, 0, size)
 );
 
 //------------------------------
 
 /*
-packer("int16"); // primitive | returns: value
+packer('int16'); // primitive | returns: value
 pack(0);
 
-packer(["int16"]); // array | returns: array | unpackDataAsArray = true
+packer(['int16']); // array | returns: array | unpackDataAsArray = true
 pack([0]);
 
-packer(["name:str"]); // object | returns: object
-pack(["D"]);
-pack({name: "D"});
+packer(['name:str']); // object | returns: object
+pack(['D']);
+pack({name: 'D'});
 
-packer(["int16", "name:str"]); // error
+packer(['int16', 'name:str']); // error
 
 //----)>
 
@@ -68,27 +56,6 @@ unpack(bin, offset, length, cbEndInfo(offset), target, asCopy, asArray);
 
 @bin - Buffer / Uint8Array
 */
-```
-
-
-```
-> Node.js v8.9.4
-> npm run bmCopm
-
-
-2pack.pack: 2799.724ms
-2pack.pack.static: 2251.945ms
-2pack.unpack: 5212.609ms
-
-msgpackLite.pack: 9648.407ms
-msgpackLite.pack.static: 8721.737ms
-msgpackLite.unpack: 12450.920ms
-
-2pack.pack.without(str): 604.289ms
-2pack.unpack.without(str): 1542.349ms
-
-msgpackLite.pack.without(str): 5027.350ms
-msgpackLite.unpack.without(str): 5191.954ms
 ```
 
 
@@ -108,11 +75,3 @@ msgpackLite.unpack.without(str): 5191.954ms
 ## License
 
 MIT
-
-----------------------------------
-[@ Daeren][1]
-[@ Telegram][2]
-
-
-[1]: http://666.io
-[2]: https://telegram.me/io666

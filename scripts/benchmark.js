@@ -1,18 +1,11 @@
-﻿//-----------------------------------------------------
-//
-// Author: Daeren
-// Site: 666.io
-//
-//-----------------------------------------------------
-
-const packer = require("./../index");
+﻿const packer = require('./../src/index');
 
 //-----------------------------------------------------
 
 testPacker({
-        data:   JSON.stringify({x:1, b: "b".repeat(1)}),
-        name:   "DT | (っ◕‿◕)っ ♥ | Привет",
-        status: "X  | (っ◕‿◕)っ ♥  Да",
+        data:   JSON.stringify({x:1, b: 'b'.repeat(1)}),
+        name:   'DT | (っ◕‿◕)っ ♥ | Привет',
+        status: 'X  | (っ◕‿◕)っ ♥  Да',
         e8:     "",
         e:      "",
         lvl:    -300.2,
@@ -22,22 +15,22 @@ testPacker({
         y:      -300.52
     },
     [
-        "data:str",
-        "name:str",
-        "status:str",
-        "e8:str",
-        "e:str",
-        "e1:str",
-        "e2:int8",
-        "e3:str",
-        "lvl:int8",
-        "hp:uint16",
-        "gm:uint8",
-        "x:float32",
-        "y:float64"
+        'data:str',
+        'name:str',
+        'status:str',
+        'e8:str',
+        'e:str',
+        'e1:str',
+        'e2:int8',
+        'e3:str',
+        'lvl:int8',
+        'hp:uint16',
+        'gm:uint8',
+        'x:float32',
+        'y:float64'
     ]);
 
-console.log("------------------");
+console.log('------------------');
 
 testPacker({
         lvl:    122,
@@ -46,18 +39,18 @@ testPacker({
         y:      -300.52
     },
     [
-        "lvl:uint8",
-        "hp:uint16",
-        "x:float64",
-        "y:float64"
+        'lvl:uint8',
+        'hp:uint16',
+        'x:float64',
+        'y:float64'
     ]);
 
-console.log("------------------");
+console.log('------------------');
 
 testPacker({
-        data:   JSON.stringify({x:1, b: "b".repeat(1)}),
-        name:   "DT | (っ◕‿◕)っ ♥ | Привет",
-        status: "X  | (っ◕‿◕)っ ♥  Да",
+        data:   JSON.stringify({x:1, b: 'b'.repeat(1)}),
+        name:   'DT | (っ◕‿◕)っ ♥ | Привет',
+        status: 'X  | (っ◕‿◕)っ ♥  Да',
         e8:     "",
         e:      "",
         lvl:    -300.2,
@@ -67,12 +60,12 @@ testPacker({
         y:      -300.52
     },
     [
-        "e2:int8",
-        "lvl:int8",
-        "hp:uint16",
-        "gm:uint8",
-        "x:float32",
-        "y:float64"
+        'e2:int8',
+        'lvl:int8',
+        'hp:uint16',
+        'gm:uint8',
+        'x:float32',
+        'y:float64'
     ]);
 
 //-----------------------------------------------------
@@ -96,37 +89,37 @@ function testPacker(data, schema) {
 
     l = 1000 * 1000 * 1;
 
-    console.time("pktHero.unpack(packPktHero)");
+    console.time('pktHero.unpack(packPktHero)');
 
     while(l--) {
         t = pktHero.unpack(packPktHero, 0, pktHeroLen);
     }
 
-    console.timeEnd("pktHero.unpack(packPktHero)");
+    console.timeEnd('pktHero.unpack(packPktHero)');
 
     //-----------------]>
 
     l = 1000 * 1000 * 1;
 
-    console.time("JSON.parse(strJsonHero)");
+    console.time('JSON.parse(strJsonHero)');
 
     while(l--) {
         t = JSON.parse(strJsonHero);
     }
 
-    console.timeEnd("JSON.parse(strJsonHero)");
+    console.timeEnd('JSON.parse(strJsonHero)');
 
     //-----------------]>
 
     l = 1000 * 1000 * 1;
 
-    console.time("JSON.parse(bufJsonHero)");
+    console.time('JSON.parse(bufJsonHero)');
 
     while(l--) {
         t = JSON.parse(bufJsonHero);
     }
 
-    console.timeEnd("JSON.parse(bufJsonHero)");
+    console.timeEnd('JSON.parse(bufJsonHero)');
 
 
 
@@ -135,52 +128,52 @@ function testPacker(data, schema) {
 
     l = 1000 * 1000 * 1;
 
-    console.time("pktHero.pack(objJsonHero)");
+    console.time('pktHero.pack(objJsonHero)');
 
     while(l--) {
-        objJsonHero.name = (l % 2 === 0 ? "0" : "") + l.toString();
+        objJsonHero.name = (l % 2 === 0 ? '0' : "") + l.toString();
         t = pktHero.pack(objJsonHero);
     }
 
-    console.timeEnd("pktHero.pack(objJsonHero)");
+    console.timeEnd('pktHero.pack(objJsonHero)');
 
 
     //-----------------]>
 
     l = 1000 * 1000 * 1;
 
-    console.time("JSON.stringify(objJsonHero)");
+    console.time('JSON.stringify(objJsonHero)');
 
     while(l--) {
-        objJsonHero.name = (l % 2 === 0 ? "0" : "") + l.toString();
+        objJsonHero.name = (l % 2 === 0 ? '0' : "") + l.toString();
         t = JSON.stringify(objJsonHero);
     }
 
-    console.timeEnd("JSON.stringify(objJsonHero)");
+    console.timeEnd('JSON.stringify(objJsonHero)');
 
     //-----------------]>
 
     l = 1000 * 1000 * 1;
 
-    console.time("pktHero.pack(objJsonHero) | static.length");
+    console.time('pktHero.pack(objJsonHero) | static.length');
 
     while(l--) {
         t = pktHero.pack(objJsonHero);
     }
 
-    console.timeEnd("pktHero.pack(objJsonHero) | static.length");
+    console.timeEnd('pktHero.pack(objJsonHero) | static.length');
 
 
     //-----------------]>
 
     l = 1000 * 1000 * 1;
 
-    console.time("JSON.stringify(objJsonHero) | static.length");
+    console.time('JSON.stringify(objJsonHero) | static.length');
 
     while(l--) {
         t = JSON.stringify(objJsonHero);
     }
 
-    console.timeEnd("JSON.stringify(objJsonHero) | static.length");
+    console.timeEnd('JSON.stringify(objJsonHero) | static.length');
 
 }
