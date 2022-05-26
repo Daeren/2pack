@@ -49,8 +49,10 @@ module.exports = (env, argv) => {
             path: path.resolve(__dirname, 'dist'),
             filename: name + '.js',
 
-            library: 'packer',
-            libraryTarget: 'umd',
+            library: {
+                name: 'packer',
+                type: 'umd',
+            }
         },
 
         module: {

@@ -13,6 +13,8 @@
     },
     "main": "./src/index",
     "scripts": {
+        "prepare": "npm run build",
+
         "build": "npm test && npm run build-prod-min && npm run build-prod && npm run build-dev",
         "build-prod-min": "webpack --mode=production --env=min",
         "build-prod": "webpack --mode=production",
